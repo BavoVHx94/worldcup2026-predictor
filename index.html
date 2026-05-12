@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Cup 2026 Score Predictor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f8f7f4;
+      --card: #ffffff;
+      --border: rgba(0,0,0,0.1);
+      --border-md: rgba(0,0,0,0.2);
+      --text: #1a1a18;
+      --muted: #6b6b65;
+      --hint: #9a9a94;
+      --teal: #1D9E75;
+      --teal-light: #E1F5EE;
+      --teal-dark: #0F6E56;
+      --amber: #BA7517;
+      --amber-light: #FAEEDA;
+      --blue: #185FA5;
+      --blue-light: #E6F1FB;
+      --red-light: #FCEBEB;
+      --red: #A32D2D;
+      --green-light: #EAF3DE;
+      --green: #3B6D11;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a18;
+        --card: #242422;
+        --border: rgba(255,255,255,0.1);
+        --border-md: rgba(255,255,255,0.2);
+        --text: #e8e6df;
+        --muted: #9a9a94;
+        --hint: #6b6b65;
+        --teal-light: #04342C;
+        --amber-light: #412402;
+        --blue-light: #042C53;
+        --red-light: #501313;
+        --green-light: #173404;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    /* Layout */
+    .app { max-width: 720px; margin: 0 auto; padding: 0 16px 80px; }
+    /* Header */
+    .header { display: flex; align-items: center; gap: 12px; padding: 24px 0 20px; }
+    .header-icon { width: 44px; height: 44px; background: #FAC775; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .header-title { font-size: 20px; font-weight: 600; }
+    .header-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    /* Player bar */
+    .player-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .chip { padding: 6px 14px; font-size: 13px; border: 1px solid var(--border-md); border-radius: 20px; background: transparent; color: var(--muted); cursor: pointer; transition: all .15s; }
+    .chip:hover { background: var(--card); }
+    .chip.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+    .chip.add { color: var(--hint); border-style: dashed; }
+    /* Tabs */
+    .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+    .tab { padding: 10px 16px; font-size: 13px; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color .15s; }
+    .tab.active { color: var(--text); font-weight: 500; border-bottom-color: var(--text); }
+    /* Scoring guide */
+    .sg { display: flex; flex-wrap: wrap; gap: 8px 16px; background: var(--teal-light); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 16px; }
+    .sg-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--teal-dark); }
+    .sg-pts { font-weight: 600; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--text); }
+    /* Match card */
+    .group-label { font-size: 11px; font-weight: 600; color: var(--hint); letter-spacing: .08em; text-transform: uppercase; margin: 16px 0 8px; }
+    .match-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; }
+    .match-date { font-size: 11px; color: var(--hint); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .result-badge { font-size: 11px; background: var(--green-light); color: var(--green); border-radius: 4px; padding: 2px 7px; font-weight: 500; }
+    .result-badge.exact { background: var(--teal-light); color: var(--teal-dark); }
+    .result-badge.wrong { background: var(--red-light); color: var(--red); }
+    .result-badge.partial { background: var(--amber-light); color: var(--amber); }
+    .teams { display: flex; align-items: center; gap: 10px; }
+    .team { flex: 1; text-align: center; }
+    .team-flag { font-size: 26px; display: block; margin-bottom: 4px; }
+    .team-name { font-size: 12px; font-weight: 500; }
+    .score-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .score-inputs { display: flex; align-items: center; gap: 6px; }
+    .score-inputs input { width: 36px; height: 36px; text-align: center; font-size: 16px; font-weight: 600; border: 1px solid var(--border-md); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+    .score-sep { font-size: 16px; color: var(--hint); }
+    .winner-btns { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .wb { flex: 1; padding: 6px 4px; font-size: 11px; border: 1px solid var(--border-md); border-radius: var(--radius-sm); background: transparent; color: var(--muted); cursor: pointer; transition: all .12s; }
+    .wb:hover { background: var(--bg); }
+    .wb.sel-h { background: var(--blue-light); color: var(--blue); border-color: var(--blue); font-weight: 500; }
+    .wb.sel-a { background: var(--red-light); color: var(--red); border-color: var(--red); font-weight: 500; }
+    .wb.sel-d { background: var(--green-light); color: var(--green); border-color: var(--green); font-weight: 500; }
+    /* Global picks */
+    .global-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px; }
+    .global-lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .global-title { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
+    .global-select, .global-input { width: 100%; padding: 9px 12px; font-size: 14px; border: 1px solid var(--border-md); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+    /* Leaderboard */
+    .lb-header { display: grid; grid-template-columns: 36px minmax(0,1fr) 56px 56px 56px; gap: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--hint); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+    .lb-row { display: grid; grid-template-columns: 36px minmax(0,1fr) 56px 56px 56px; gap: 6px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 10px; margin-bottom: 6px; }
+    .lb-rank { font-size: 15px; font-weight: 600; text-align: center; color: var(--muted); }
+    .lb-name { font-size: 14px; font-weight: 500; }
+    .lb-you { font-size: 10px; background: var(--blue-light); color: var(--blue); border-radius: 3px; padding: 1px 5px; margin-left: 5px; }
+    .lb-meta { font-size: 11px; color: var(--hint); }
+    .lb-pts { font-size: 16px; font-weight: 600; text-align: center; }
+    .lb-num { font-size: 13px; color: var(--muted); text-align: center; }
+    /* Save bar */
+    .save-bar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 16px; }
+    .saved-msg { font-size: 12px; color: var(--teal); display: none; align-items: center; gap: 4px; }
+    .save-btn { padding: 10px 22px; font-size: 13px; font-weight: 600; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); cursor: pointer; }
+    .save-btn:hover { opacity: .85; }
+    /* Admin */
+    .admin-result { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .admin-result label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .admin-result input { width: 36px; height: 30px; text-align: center; font-size: 13px; font-weight: 600; border: 1px solid var(--border-md); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    .modal { background: var(--card); border-radius: var(--radius); padding: 24px; max-width: 340px; width: 100%; }
+    .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .modal p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .modal input { width: 100%; margin-bottom: 10px; padding: 10px 12px; font-size: 14px; border: 1px solid var(--border-md); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
+    .modal-btns { display: flex; gap: 8px; }
+    .modal-btns button { flex: 1; padding: 10px; font-size: 13px; font-weight: 500; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border-md); background: transparent; color: var(--text); }
+    .modal-btns .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 200; opacity: 0; transition: opacity .3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+    /* Loading */
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .tip { background: var(--amber-light); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--amber); margin-bottom: 16px; line-height: 1.5; }
+    .section-empty { text-align: center; padding: 40px 20px; color: var(--hint); font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-icon">🏆</div>
+    <div>
+      <div class="header-title">World Cup 2026 Score Predictor</div>
+      <div class="header-sub" id="current-label">Loading...</div>
+    </div>
+  </div>
+
+  <div id="player-bar" class="player-bar"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('groups',this)">Group stage</button>
+    <button class="tab" onclick="showTab('knockouts',this)">Knockouts</button>
+    <button class="tab" onclick="showTab('globals',this)">Global picks</button>
+    <button class="tab" onclick="showTab('leaderboard',this)">Leaderboard</button>
+    <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
+  </div>
+
+  <div id="tab-groups" class="tab-section">
+    <div class="sg">
+      <span class="sg-item"><span class="sg-pts">+2</span> correct winner</span>
+      <span class="sg-item"><span class="sg-pts">+3</span> correct score</span>
+      <span class="sg-item"><span class="sg-pts">+5</span> exact scoreline</span>
+    </div>
+    <div id="groups-list"><div class="loading"><div class="spinner"></div>Loading matches...</div></div>
+    <div class="save-bar">
+      <span class="saved-msg" id="g-saved">✓ Saved</span>
+      <button class="save-btn" onclick="savePredictions('groups')">Save predictions</button>
+    </div>
+  </div>
+
+  <div id="tab-knockouts" class="tab-section" style="display:none">
+    <div class="sg">
+      <span class="sg-item"><span class="sg-pts">+4</span> R16 winner</span>
+      <span class="sg-item"><span class="sg-pts">+4</span> QF winner</span>
+      <span class="sg-item"><span class="sg-pts">+6</span> SF winner</span>
+      <span class="sg-item"><span class="sg-pts">+10</span> finalist</span>
+      <span class="sg-item"><span class="sg-pts">+15</span> champion</span>
+      <span class="sg-item"><span class="sg-pts">+5</span> exact score</span>
+    </div>
+    <div id="knockouts-list"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+    <div class="save-bar">
+      <span class="saved-msg" id="k-saved">✓ Saved</span>
+      <button class="save-btn" onclick="savePredictions('knockouts')">Save predictions</button>
+    </div>
+  </div>
+
+  <div id="tab-globals" class="tab-section" style="display:none">
+    <div class="sg">
+      <span class="sg-item"><span class="sg-pts">+10</span> tournament winner</span>
+      <span class="sg-item"><span class="sg-pts">+8</span> Golden Boot</span>
+      <span class="sg-item"><span class="sg-pts">+5</span> runner-up</span>
+    </div>
+    <div id="globals-list"></div>
+    <div class="save-bar">
+      <span class="saved-msg" id="gl-saved">✓ Saved</span>
+      <button class="save-btn" onclick="savePredictions('globals')">Save global picks</button>
+    </div>
+  </div>
+
+  <div id="tab-leaderboard" class="tab-section" style="display:none">
+    <div id="leaderboard-list"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+  </div>
+
+  <div id="tab-admin" class="tab-section" style="display:none">
+    <div class="tip">⚙ Admin mode — enter real match results here. Points are recalculated automatically for all players.</div>
+    <div id="admin-list"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+    <div class="save-bar">
+      <span class="saved-msg" id="a-saved">✓ Results saved</span>
+      <button class="save-btn" onclick="saveResults()">Save results</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Add player modal -->
+<div class="modal-overlay" id="modal" style="display:none">
+  <div class="modal">
+    <h3 id="modal-title">Join the league</h3>
+    <p id="modal-desc">Enter your name to start making predictions.</p>
+    <input type="text" id="modal-input" placeholder="Your name..." maxlength="30" />
+    <div class="modal-btns">
+      <button id="modal-cancel" onclick="closeModal()" style="display:none">Cancel</button>
+      <button class="btn-primary" onclick="submitModal()">Join league</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION — replace with your Supabase values
+// ============================================================
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+// ============================================================
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Data ──────────────────────────────────────────────────────
+const FLAGS = {Argentina:'🇦🇷',Australia:'🇦🇺',Belgium:'🇧🇪',Brazil:'🇧🇷',Cameroon:'🇨🇲',Canada:'🇨🇦',Colombia:'🇨🇴',Croatia:'🇭🇷',Denmark:'🇩🇰',Ecuador:'🇪🇨',England:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',France:'🇫🇷',Germany:'🇩🇪',Ghana:'🇬🇭',Iran:'🇮🇷',Italy:'🇮🇹',Japan:'🇯🇵',Mexico:'🇲🇽',Morocco:'🇲🇦',Netherlands:'🇳🇱',Poland:'🇵🇱',Portugal:'🇵🇹','Saudi Arabia':'🇸🇦',Senegal:'🇸🇳',Serbia:'🇷🇸','South Korea':'🇰🇷',Spain:'🇪🇸',Switzerland:'🇨🇭',Tunisia:'🇹🇳',Uruguay:'🇺🇾',USA:'🇺🇸',Wales:'🏴󠁧󠁢󠁷󠁬󠁳󠁿','Costa Rica':'🇨🇷'};
+const TEAMS = Object.keys(FLAGS).sort();
+const F = t => FLAGS[t] || '🏳️';
+
+const GROUP_MATCHES = [
+  {id:'ga1',g:'Group A',home:'Netherlands',away:'Senegal',date:'Jun 12'},
+  {id:'ga2',g:'Group A',home:'Ecuador',away:'Qatar',date:'Jun 12'},
+  {id:'ga3',g:'Group A',home:'Netherlands',away:'Ecuador',date:'Jun 17'},
+  {id:'ga4',g:'Group A',home:'Qatar',away:'Senegal',date:'Jun 17'},
+  {id:'ga5',g:'Group A',home:'Senegal',away:'Ecuador',date:'Jun 21'},
+  {id:'ga6',g:'Group A',home:'Qatar',away:'Netherlands',date:'Jun 21'},
+  {id:'gb1',g:'Group B',home:'England',away:'Iran',date:'Jun 13'},
+  {id:'gb2',g:'Group B',home:'USA',away:'Wales',date:'Jun 13'},
+  {id:'gb3',g:'Group B',home:'Wales',away:'Iran',date:'Jun 17'},
+  {id:'gb4',g:'Group B',home:'England',away:'USA',date:'Jun 18'},
+  {id:'gb5',g:'Group B',home:'Iran',away:'USA',date:'Jun 21'},
+  {id:'gb6',g:'Group B',home:'Wales',away:'England',date:'Jun 21'},
+  {id:'gc1',g:'Group C',home:'Argentina',away:'Saudi Arabia',date:'Jun 14'},
+  {id:'gc2',g:'Group C',home:'Mexico',away:'Poland',date:'Jun 14'},
+  {id:'gc3',g:'Group C',home:'Poland',away:'Saudi Arabia',date:'Jun 18'},
+  {id:'gc4',g:'Group C',home:'Argentina',away:'Mexico',date:'Jun 19'},
+  {id:'gc5',g:'Group C',home:'Saudi Arabia',away:'Mexico',date:'Jun 22'},
+  {id:'gc6',g:'Group C',home:'Poland',away:'Argentina',date:'Jun 22'},
+  {id:'gd1',g:'Group D',home:'France',away:'Australia',date:'Jun 14'},
+  {id:'gd2',g:'Group D',home:'Denmark',away:'Tunisia',date:'Jun 14'},
+  {id:'gd3',g:'Group D',home:'Tunisia',away:'Australia',date:'Jun 19'},
+  {id:'gd4',g:'Group D',home:'France',away:'Denmark',date:'Jun 19'},
+  {id:'gd5',g:'Group D',home:'Australia',away:'Denmark',date:'Jun 22'},
+  {id:'gd6',g:'Group D',home:'Tunisia',away:'France',date:'Jun 22'},
+  {id:'ge1',g:'Group E',home:'Germany',away:'Japan',date:'Jun 15'},
+  {id:'ge2',g:'Group E',home:'Spain',away:'Costa Rica',date:'Jun 15'},
+  {id:'ge3',g:'Group E',home:'Japan',away:'Costa Rica',date:'Jun 19'},
+  {id:'ge4',g:'Group E',home:'Spain',away:'Germany',date:'Jun 20'},
+  {id:'ge5',g:'Group E',home:'Japan',away:'Spain',date:'Jun 23'},
+  {id:'ge6',g:'Group E',home:'Costa Rica',away:'Germany',date:'Jun 23'},
+  {id:'gf1',g:'Group F',home:'Morocco',away:'Croatia',date:'Jun 15'},
+  {id:'gf2',g:'Group F',home:'Belgium',away:'Canada',date:'Jun 15'},
+  {id:'gf3',g:'Group F',home:'Belgium',away:'Morocco',date:'Jun 19'},
+  {id:'gf4',g:'Group F',home:'Croatia',away:'Canada',date:'Jun 20'},
+  {id:'gf5',g:'Group F',home:'Croatia',away:'Belgium',date:'Jun 23'},
+  {id:'gf6',g:'Group F',home:'Canada',away:'Morocco',date:'Jun 23'},
+  {id:'gg1',g:'Group G',home:'Brazil',away:'Serbia',date:'Jun 16'},
+  {id:'gg2',g:'Group G',home:'Switzerland',away:'Cameroon',date:'Jun 16'},
+  {id:'gg3',g:'Group G',home:'Cameroon',away:'Serbia',date:'Jun 20'},
+  {id:'gg4',g:'Group G',home:'Brazil',away:'Switzerland',date:'Jun 20'},
+  {id:'gg5',g:'Group G',home:'Cameroon',away:'Brazil',date:'Jun 24'},
+  {id:'gg6',g:'Group G',home:'Serbia',away:'Switzerland',date:'Jun 24'},
+  {id:'gh1',g:'Group H',home:'Portugal',away:'Ghana',date:'Jun 16'},
+  {id:'gh2',g:'Group H',home:'Uruguay',away:'South Korea',date:'Jun 16'},
+  {id:'gh3',g:'Group H',home:'South Korea',away:'Ghana',date:'Jun 20'},
+  {id:'gh4',g:'Group H',home:'Portugal',away:'Uruguay',date:'Jun 21'},
+  {id:'gh5',g:'Group H',home:'Ghana',away:'Uruguay',date:'Jun 24'},
+  {id:'gh6',g:'Group H',home:'South Korea',away:'Portugal',date:'Jun 24'},
+];
+
+const KO_MATCHES = [
+  {id:'r16a',round:'Round of 16',home:'Winner A',away:'Runner-up B',date:'Jul 3'},
+  {id:'r16b',round:'Round of 16',home:'Winner C',away:'Runner-up D',date:'Jul 3'},
+  {id:'r16c',round:'Round of 16',home:'Winner B',away:'Runner-up A',date:'Jul 4'},
+  {id:'r16d',round:'Round of 16',home:'Winner D',away:'Runner-up C',date:'Jul 4'},
+  {id:'r16e',round:'Round of 16',home:'Winner E',away:'Runner-up F',date:'Jul 5'},
+  {id:'r16f',round:'Round of 16',home:'Winner G',away:'Runner-up H',date:'Jul 5'},
+  {id:'r16g',round:'Round of 16',home:'Winner F',away:'Runner-up E',date:'Jul 6'},
+  {id:'r16h',round:'Round of 16',home:'Winner H',away:'Runner-up G',date:'Jul 6'},
+  {id:'qf1',round:'Quarter-final',home:'W R16-A',away:'W R16-B',date:'Jul 9'},
+  {id:'qf2',round:'Quarter-final',home:'W R16-C',away:'W R16-D',date:'Jul 9'},
+  {id:'qf3',round:'Quarter-final',home:'W R16-E',away:'W R16-F',date:'Jul 10'},
+  {id:'qf4',round:'Quarter-final',home:'W R16-G',away:'W R16-H',date:'Jul 10'},
+  {id:'sf1',round:'Semi-final',home:'W QF1',away:'W QF2',date:'Jul 13'},
+  {id:'sf2',round:'Semi-final',home:'W QF3',away:'W QF4',date:'Jul 14'},
+  {id:'fin',round:'🏆 Final',home:'W SF1',away:'W SF2',date:'Jul 18'},
+];
+
+// ── State ──────────────────────────────────────────────────────
+let players = [];
+let currentPlayer = null;
+let predictions = {};  // { player_id: { match_id: {home_score,away_score,winner,extra} } }
+let results = {};      // { match_id: {home_score,away_score,winner,extra} }
+let pendingPreds = {}; // unsaved changes for current player
+let pendingResults = {};
+
+// ── Init ───────────────────────────────────────────────────────
+async function init() {
+  await loadPlayers();
+  if (players.length === 0) {
+    openModal(true);
+  } else {
+    currentPlayer = players[0];
+    await loadAllData();
+    render();
+  }
+}
+
+async function loadPlayers() {
+  const { data } = await db.from('players').select('*').order('created_at');
+  players = data || [];
+}
+
+async function loadAllData() {
+  const [predsRes, resultsRes] = await Promise.all([
+    db.from('predictions').select('*'),
+    db.from('results').select('*'),
+  ]);
+  predictions = {};
+  (predsRes.data || []).forEach(r => {
+    if (!predictions[r.player_id]) predictions[r.player_id] = {};
+    predictions[r.player_id][r.match_id] = {
+      home_score: r.home_score,
+      away_score: r.away_score,
+      winner: r.winner,
+      extra: r.extra || {},
+    };
+  });
+  results = {};
+  (resultsRes.data || []).forEach(r => {
+    results[r.match_id] = { home_score: r.home_score, away_score: r.away_score, winner: r.winner, extra: r.extra || {} };
+  });
+  pendingPreds = {};
+  pendingResults = {};
+}
+
+// ── Rendering ──────────────────────────────────────────────────
+function render() {
+  renderPlayerBar();
+  document.getElementById('current-label').textContent = 'Predictions for: ' + currentPlayer.name;
+  renderGroups();
+  renderKnockouts();
+  renderGlobals();
+  renderLeaderboard();
+  renderAdmin();
+}
+
+function renderPlayerBar() {
+  document.getElementById('player-bar').innerHTML =
+    players.map(p => `<button class="chip ${p.id===currentPlayer.id?'active':''}" onclick="switchPlayer('${p.id}')">${p.name}</button>`).join('') +
+    `<button class="chip add" onclick="openModal(false)">+ Add player</button>`;
+}
+
+function getPred(matchId) {
+  const cp = currentPlayer.id;
+  return pendingPreds[matchId] || (predictions[cp] && predictions[cp][matchId]) || {};
+}
+
+function getResult(matchId) {
+  return pendingResults[matchId] || results[matchId] || {};
+}
+
+function scoreMatch(matchId, ptWin, ptExact, playerId) {
+  const pid = playerId || currentPlayer.id;
+  const pred = (predictions[pid] && predictions[pid][matchId]) || {};
+  const res = results[matchId];
+  if (!res || res.home_score === null || res.home_score === undefined) return null;
+  const rh = parseInt(res.home_score), ra = parseInt(res.away_score);
+  const rw = rh > ra ? 'home' : ra > rh ? 'away' : 'draw';
+  const ph = parseInt(pred.home_score), pa = parseInt(pred.away_score);
+  const pw = pred.winner;
+  if (ph === rh && pa === ra) return { pts: ptExact, label: 'exact +' + ptExact };
+  if (pw && pw === rw) return { pts: ptWin, label: '+' + ptWin };
+  if (pw) return { pts: 0, label: 'miss' };
+  return null;
+}
+
+function matchBadgeHtml(matchId, ptWin, ptExact) {
+  const sc = scoreMatch(matchId, ptWin, ptExact);
+  if (!sc) return '';
+  const cls = sc.label.startsWith('exact') ? 'exact' : sc.label === 'miss' ? 'wrong' : 'partial';
+  const res = getResult(matchId);
+  return `<span class="result-badge ${cls}">Result: ${res.home_score}–${res.away_score} ${sc.label}</span>`;
+}
+
+function matchCardHtml(m, ptWin, ptExact) {
+  const pred = getPred(m.id);
+  const hf = F(m.home), af = F(m.away);
+  const pw = pred.winner;
+  const badge = matchBadgeHtml(m.id, ptWin, ptExact);
+  return `<div class="match-card">
+    <div class="match-date"><span>${m.date}</span>${badge}</div>
+    <div class="teams">
+      <div class="team"><span class="team-flag">${hf}</span><span class="team-name">${m.home}</span></div>
+      <div class="score-col">
+        <span style="font-size:11px;color:var(--hint)">vs</span>
+        <div class="score-inputs">
+          <input type="number" min="0" max="20" value="${pred.home_score??''}" placeholder="0"
+            oninput="setPred('${m.id}','home_score',this.value)" />
+          <span class="score-sep">–</span>
+          <input type="number" min="0" max="20" value="${pred.away_score??''}" placeholder="0"
+            oninput="setPred('${m.id}','away_score',this.value)" />
+        </div>
+      </div>
+      <div class="team"><span class="team-flag">${af}</span><span class="team-name">${m.away}</span></div>
+    </div>
+    <div class="winner-btns">
+      <button class="wb ${pw==='home'?'sel-h':''}" onclick="setWinner('${m.id}','home',this)">${hf} ${m.home.split(' ').slice(-1)[0]}</button>
+      ${ptWin===2?`<button class="wb ${pw==='draw'?'sel-d':''}" onclick="setWinner('${m.id}','draw',this)">Draw</button>`:''}
+      <button class="wb ${pw==='away'?'sel-a':''}" onclick="setWinner('${m.id}','away',this)">${af} ${m.away.split(' ').slice(-1)[0]}</button>
+    </div>
+  </div>`;
+}
+
+function renderGroups() {
+  let html = '', last = '';
+  GROUP_MATCHES.forEach(m => {
+    if (m.g !== last) { html += `<div class="group-label">${m.g}</div>`; last = m.g; }
+    html += matchCardHtml(m, 2, 5);
+  });
+  document.getElementById('groups-list').innerHTML = html;
+}
+
+function renderKnockouts() {
+  let html = '', last = '';
+  KO_MATCHES.forEach(m => {
+    if (m.round !== last) { html += `<div class="group-label">${m.round}</div>`; last = m.round; }
+    const ptWin = m.round.includes('16')||m.round.includes('Quarter') ? 4 : m.round.includes('Semi') ? 6 : 10;
+    html += matchCardHtml(m, ptWin, 5);
+  });
+  document.getElementById('knockouts-list').innerHTML = html;
+}
+
+function renderGlobals() {
+  const pred = getPred('__globals');
+  const ex = pred.extra || {};
+  const teamOpts = TEAMS.map(t => `<option value="${t}" ${ex.winner===t?'selected':''}>${F(t)} ${t}</option>`).join('');
+  const teamOpts2 = TEAMS.map(t => `<option value="${t}" ${ex.runnerup===t?'selected':''}>${F(t)} ${t}</option>`).join('');
+  document.getElementById('globals-list').innerHTML = `
+    <div class="global-card">
+      <div class="global-lbl">🏆 Tournament winner</div>
+      <div class="global-title">Which team lifts the trophy?</div>
+      <select class="global-select" onchange="setGlobal('winner',this.value)"><option value="">Select a team...</option>${teamOpts}</select>
+    </div>
+    <div class="global-card">
+      <div class="global-lbl">⚽ Golden Boot</div>
+      <div class="global-title">Who is the top scorer?</div>
+      <input class="global-input" type="text" placeholder="e.g. Vinicius Jr (Brazil)" value="${ex.goldenBoot||''}" oninput="setGlobal('goldenBoot',this.value)" />
+    </div>
+    <div class="global-card">
+      <div class="global-lbl">🥈 Runner-up</div>
+      <div class="global-title">Who loses the final?</div>
+      <select class="global-select" onchange="setGlobal('runnerup',this.value)"><option value="">Select a team...</option>${teamOpts2}</select>
+    </div>`;
+}
+
+function renderLeaderboard() {
+  const scores = players.map(p => {
+    let pts = 0, correct = 0, exact = 0;
+    GROUP_MATCHES.forEach(m => {
+      const sc = scoreMatch(m.id, 2, 5, p.id);
+      if (sc) { pts += sc.pts; if (sc.pts > 0) correct++; if (sc.label.startsWith('exact')) exact++; }
+    });
+    KO_MATCHES.forEach(m => {
+      const ptWin = m.round.includes('16')||m.round.includes('Quarter') ? 4 : m.round.includes('Semi') ? 6 : 10;
+      const sc = scoreMatch(m.id, ptWin, 5, p.id);
+      if (sc) { pts += sc.pts; if (sc.pts > 0) correct++; if (sc.label.startsWith('exact')) exact++; }
+    });
+    // Global picks
+    const gp = (predictions[p.id] && predictions[p.id]['__globals'] && predictions[p.id]['__globals'].extra) || {};
+    const gr = (results['__globals'] && results['__globals'].extra) || {};
+    if (gr.winner && gp.winner === gr.winner) pts += 10;
+    if (gr.runnerup && gp.runnerup === gr.runnerup) pts += 5;
+    if (gr.goldenBoot && gp.goldenBoot && gp.goldenBoot.toLowerCase().trim() === gr.goldenBoot.toLowerCase().trim()) pts += 8;
+    return { p, pts, correct, exact };
+  }).sort((a, b) => b.pts - a.pts || b.correct - a.correct);
+
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('leaderboard-list').innerHTML =
+    `<div class="lb-header"><span></span><span>Player</span><span style="text-align:center">Pts</span><span style="text-align:center">Correct</span><span style="text-align:center">Exact</span></div>` +
+    (scores.length === 0 ? '<div class="section-empty">No players yet</div>' :
+    scores.map(({p, pts, correct, exact}, i) => `
+      <div class="lb-row">
+        <div class="lb-rank">${medals[i]||i+1}</div>
+        <div><div class="lb-name">${p.name}${p.id===currentPlayer.id?'<span class="lb-you">you</span>':''}</div><div class="lb-meta">${correct} correct · ${exact} exact</div></div>
+        <div class="lb-pts">${pts}</div>
+        <div class="lb-num">${correct}</div>
+        <div class="lb-num">${exact}</div>
+      </div>`).join(''));
+}
+
+function renderAdmin() {
+  let html = '';
+  [...GROUP_MATCHES, ...KO_MATCHES].forEach(m => {
+    const res = getResult(m.id);
+    const hf = F(m.home), af = F(m.away);
+    html += `<div class="match-card">
+      <div class="match-date">${m.round||m.g||''} · ${m.date}</div>
+      <div class="teams">
+        <div class="team"><span class="team-flag">${hf}</span><span class="team-name">${m.home}</span></div>
+        <div class="score-col">
+          <span style="font-size:11px;color:var(--hint)">result</span>
+          <div class="score-inputs">
+            <input type="number" min="0" max="20" value="${res.home_score??''}" placeholder="–"
+              oninput="setResult('${m.id}','home_score',this.value)" />
+            <span class="score-sep">–</span>
+            <input type="number" min="0" max="20" value="${res.away_score??''}" placeholder="–"
+              oninput="setResult('${m.id}','away_score',this.value)" />
+          </div>
+        </div>
+        <div class="team"><span class="team-flag">${af}</span><span class="team-name">${m.away}</span></div>
+      </div>
+    </div>`;
+  });
+  // Global results
+  const gr = getResult('__globals');
+  const gex = gr.extra || {};
+  const tOpts = TEAMS.map(t => `<option value="${t}" ${gex.winner===t?'selected':''}>${F(t)} ${t}</option>`).join('');
+  const tOpts2 = TEAMS.map(t => `<option value="${t}" ${gex.runnerup===t?'selected':''}>${F(t)} ${t}</option>`).join('');
+  html += `<div class="global-card" style="margin-top:16px">
+    <div class="global-lbl" style="margin-bottom:10px;font-size:13px;font-weight:500">Global outcomes</div>
+    <div style="margin-bottom:10px"><div class="global-lbl">Tournament winner</div><select class="global-select" onchange="setResultGlobal('winner',this.value)"><option value="">—</option>${tOpts}</select></div>
+    <div style="margin-bottom:10px"><div class="global-lbl">Runner-up</div><select class="global-select" onchange="setResultGlobal('runnerup',this.value)"><option value="">—</option>${tOpts2}</select></div>
+    <div><div class="global-lbl">Golden Boot winner</div><input class="global-input" type="text" placeholder="Player name" value="${gex.goldenBoot||''}" oninput="setResultGlobal('goldenBoot',this.value)" /></div>
+  </div>`;
+  document.getElementById('admin-list').innerHTML = html;
+}
+
+// ── Setters ────────────────────────────────────────────────────
+function setPred(matchId, key, val) {
+  if (!pendingPreds[matchId]) {
+    const existing = getPred(matchId);
+    pendingPreds[matchId] = { ...existing };
+  }
+  pendingPreds[matchId][key] = val === '' ? null : parseInt(val);
+}
+
+function setWinner(matchId, winner, btn) {
+  if (!pendingPreds[matchId]) {
+    pendingPreds[matchId] = { ...getPred(matchId) };
+  }
+  pendingPreds[matchId].winner = winner;
+  const btns = btn.closest('.winner-btns').querySelectorAll('.wb');
+  btns.forEach(b => { b.className = 'wb'; });
+  btn.classList.add(winner === 'home' ? 'sel-h' : winner === 'away' ? 'sel-a' : 'sel-d');
+}
+
+function setGlobal(key, val) {
+  if (!pendingPreds['__globals']) {
+    pendingPreds['__globals'] = { ...getPred('__globals') };
+    if (!pendingPreds['__globals'].extra) pendingPreds['__globals'].extra = {};
+  }
+  pendingPreds['__globals'].extra[key] = val;
+}
+
+function setResult(matchId, key, val) {
+  if (!pendingResults[matchId]) pendingResults[matchId] = { ...getResult(matchId) };
+  pendingResults[matchId][key] = val === '' ? null : parseInt(val);
+}
+
+function setResultGlobal(key, val) {
+  if (!pendingResults['__globals']) {
+    pendingResults['__globals'] = { ...getResult('__globals') };
+    if (!pendingResults['__globals'].extra) pendingResults['__globals'].extra = {};
+  }
+  pendingResults['__globals'].extra[key] = val;
+}
+
+// ── Save predictions ───────────────────────────────────────────
+async function savePredictions(section) {
+  if (!currentPlayer) return;
+  const matchIds = section === 'groups' ? GROUP_MATCHES.map(m => m.id)
+    : section === 'knockouts' ? KO_MATCHES.map(m => m.id)
+    : ['__globals'];
+
+  const upserts = matchIds
+    .filter(id => pendingPreds[id])
+    .map(id => ({
+      player_id: currentPlayer.id,
+      match_id: id,
+      home_score: pendingPreds[id].home_score ?? null,
+      away_score: pendingPreds[id].away_score ?? null,
+      winner: pendingPreds[id].winner ?? null,
+      extra: pendingPreds[id].extra ?? null,
+      updated_at: new Date().toISOString(),
+    }));
+
+  if (upserts.length === 0) { showToast('Nothing new to save'); return; }
+
+  const { error } = await db.from('predictions').upsert(upserts, { onConflict: 'player_id,match_id' });
+  if (error) { showToast('Error: ' + error.message); return; }
+
+  // Merge pending into local state
+  upserts.forEach(u => {
+    if (!predictions[currentPlayer.id]) predictions[currentPlayer.id] = {};
+    predictions[currentPlayer.id][u.match_id] = { home_score: u.home_score, away_score: u.away_score, winner: u.winner, extra: u.extra || {} };
+    delete pendingPreds[u.match_id];
+  });
+
+  const badgeId = section === 'groups' ? 'g-saved' : section === 'knockouts' ? 'k-saved' : 'gl-saved';
+  const badge = document.getElementById(badgeId);
+  badge.style.display = 'flex';
+  setTimeout(() => badge.style.display = 'none', 2500);
+  renderLeaderboard();
+}
+
+async function saveResults() {
+  const upserts = Object.entries(pendingResults).map(([match_id, r]) => ({
+    match_id,
+    home_score: r.home_score ?? null,
+    away_score: r.away_score ?? null,
+    winner: r.winner ?? null,
+    extra: r.extra ?? null,
+    updated_at: new Date().toISOString(),
+  }));
+
+  if (upserts.length === 0) { showToast('Nothing new to save'); return; }
+
+  const { error } = await db.from('results').upsert(upserts, { onConflict: 'match_id' });
+  if (error) { showToast('Error: ' + error.message); return; }
+
+  upserts.forEach(u => {
+    results[u.match_id] = { home_score: u.home_score, away_score: u.away_score, winner: u.winner, extra: u.extra || {} };
+    delete pendingResults[u.match_id];
+  });
+
+  const badge = document.getElementById('a-saved');
+  badge.style.display = 'flex';
+  setTimeout(() => badge.style.display = 'none', 2500);
+  renderGroups(); renderKnockouts(); renderLeaderboard();
+  showToast('Results saved — leaderboard updated!');
+}
+
+// ── Player management ──────────────────────────────────────────
+async function switchPlayer(id) {
+  currentPlayer = players.find(p => p.id === id);
+  pendingPreds = {};
+  render();
+}
+
+function openModal(isFirst) {
+  document.getElementById('modal-title').textContent = isFirst ? 'Welcome to the league!' : 'Add a player';
+  document.getElementById('modal-desc').textContent = isFirst ? 'Enter your name to start making predictions.' : 'Enter the new player\'s name.';
+  document.getElementById('modal-cancel').style.display = isFirst ? 'none' : 'block';
+  document.getElementById('modal-input').value = '';
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('modal-input').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitModal(); });
+
+async function submitModal() {
+  const name = document.getElementById('modal-input').value.trim();
+  if (!name) return;
+  if (players.find(p => p.name.toLowerCase() === name.toLowerCase())) { showToast('Name already taken!'); return; }
+  const { data, error } = await db.from('players').insert({ name }).select().single();
+  if (error) { showToast('Error: ' + error.message); return; }
+  players.push(data);
+  currentPlayer = data;
+  predictions[data.id] = {};
+  closeModal();
+  render();
+}
+
+// ── Tab switching ──────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = 'block';
+  btn.classList.add('active');
+  if (name === 'leaderboard') renderLeaderboard();
+  if (name === 'admin') renderAdmin();
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
