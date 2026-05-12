@@ -177,32 +177,11 @@
 </div>
 
 <script>
-// Keys are injected by Vercel from environment variables at build time
-const SUPABASE_URL      = window.__env?.SUPABASE_URL      || '';
-const SUPABASE_ANON_KEY = window.__env?.SUPABASE_ANON_KEY || '';
-</script>
+const SUPABASE_URL      = "https://uqafxttefadjnjzzanuj.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYWZ4dHRlZmFkam5qenphbnVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTM5ODgsImV4cCI6MjA5NDE4OTk4OH0.vhnk7jQButmdmwMB_lTKDrNo73DU2aADglMHEGR_d6o";
 
-<!-- Vercel injects env vars here via _headers or build output -->
-<script id="env-config">
-  window.__env = {
-    SUPABASE_URL:      "https://uqafxttefadjnjzzanuj.supabase.co",
-    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYWZ4dHRlZmFkam5qenphbnVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTM5ODgsImV4cCI6MjA5NDE4OTk4OH0.vhnk7jQButmdmwMB_lTKDrNo73DU2aADglMHEGR_d6o"
-  };
-</script>
-
-<script>
-if (!SUPABASE_URL || SUPABASE_URL.includes('PLACEHOLDER')) {
-  document.getElementById('groups-list').innerHTML =
-    '<div class="error-banner">⚠️ Supabase is not configured yet. Please complete Step 4: add SUPABASE_URL and SUPABASE_ANON_KEY to your Vercel environment variables and redeploy.</div>';
-  document.getElementById('current-label').textContent = 'Configuration needed';
-}
-</script>
-
-<script>
 const { createClient } = supabase;
-const db = (SUPABASE_URL && !SUPABASE_URL.includes('PLACEHOLDER'))
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const FLAGS={Argentina:'🇦🇷',Australia:'🇦🇺',Belgium:'🇧🇪',Brazil:'🇧🇷',Cameroon:'🇨🇲',Canada:'🇨🇦',Colombia:'🇨🇴',Croatia:'🇭🇷',Denmark:'🇩🇰',Ecuador:'🇪🇨',England:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',France:'🇫🇷',Germany:'🇩🇪',Ghana:'🇬🇭',Iran:'🇮🇷',Italy:'🇮🇹',Japan:'🇯🇵',Mexico:'🇲🇽',Morocco:'🇲🇦',Netherlands:'🇳🇱',Poland:'🇵🇱',Portugal:'🇵🇹','Saudi Arabia':'🇸🇦',Senegal:'🇸🇳',Serbia:'🇷🇸','South Korea':'🇰🇷',Spain:'🇪🇸',Switzerland:'🇨🇭',Tunisia:'🇹🇳',Uruguay:'🇺🇾',USA:'🇺🇸',Wales:'🏴󠁧󠁢󠁷󠁬󠁳󠁿','Costa Rica':'🇨🇷'};
 const TEAMS=Object.keys(FLAGS).sort();
